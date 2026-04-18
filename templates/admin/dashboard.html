@@ -1,0 +1,109 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Welcome back. Here's your business at a glance.</p>{% endblock %}
+
+{% block content %}
+<!-- KPI Stats Row -->
+<div class="grid-4" style="margin-bottom: 24px;">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: var(--gold-tint);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div>
+            <div class="stat-value">{{ stats.total_contacts }}</div>
+            <div class="stat-label">Total Contacts</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(34, 197, 94, 0.1);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <div>
+            <div class="stat-value">{{ stats.total_leads }}</div>
+            <div class="stat-label">Active Leads</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        </div>
+        <div>
+            <div class="stat-value">${{ "{:,.0f}".format(stats.pipeline_value) }}</div>
+            <div class="stat-label">Pipeline Value</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: var(--gold-tint);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div>
+            <div class="stat-value">${{ "{:,.0f}".format(stats.total_revenue) }}</div>
+            <div class="stat-label">Revenue (Won)</div>
+        </div>
+    </div>
+</div>
+
+<!-- Secondary Stats Row -->
+<div class="grid-2" style="margin-bottom: 24px;">
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        </div>
+        <div>
+            <div class="stat-value">{{ stats.total_deals }}</div>
+            <div class="stat-label">Total Deals</div>
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-icon" style="background: rgba(34, 197, 94, 0.1);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <div>
+            <div class="stat-value">{{ stats.won_deals }}</div>
+            <div class="stat-label">Deals Won</div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 8px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Recent Activity
+        </h3>
+    </div>
+    <div class="card-body">
+        {% if recent_activity %}
+        <div class="timeline">
+            {% for activity in recent_activity %}
+            <div class="timeline-item">
+                <div class="timeline-dot
+                    {% if 'created' in activity.action_type %}success
+                    {% elif 'moved' in activity.action_type %}warning
+                    {% elif 'deleted' in activity.action_type %}danger
+                    {% endif %}
+                "></div>
+                <div class="timeline-content">
+                    <p style="color: var(--text-primary); font-size: 0.875rem; margin-bottom: 4px;">{{ activity.description }}</p>
+                    <span class="timeline-time">{{ activity.created_at.strftime('%b %d, %Y at %I:%M %p') if activity.created_at else '' }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-subtle)" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <h3 class="empty-state-heading">No activity yet</h3>
+            <p class="empty-state-description">Start by adding your first contact to get things rolling.</p>
+            <a href="/admin/contacts" class="btn btn-primary" style="margin-top: 12px;">Add Contact</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

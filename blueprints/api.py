@@ -251,3 +251,20 @@ def dashboard_stats():
         "deals_by_stage": deals_by_stage,
         "recent_activity": [a.to_dict() for a in recent],
     })
+
+
+# --- AI CHATBOT ---
+
+@api_bp.route("/chat", methods=["POST"])
+@login_required
+def chat_endpoint():
+    data = request.get_json()
+    if not data or not data.get("message"):
+        return jsonify({"error": "Message is required"}), 400
+
+    from chatbot import chat
+    result = chat(
+        user_message=data["message"],
+        history=data.get("history", []),
+    )
+    return jsonify(result)

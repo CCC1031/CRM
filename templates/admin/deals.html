@@ -37,10 +37,18 @@
                 </div>
             </div>
 
-            <div class="pipeline-cards">
+            <div class="pipeline-cards"
+                 data-stage="{{ stage }}"
+                 @dragover.prevent="dragOver($event)"
+                 @dragleave="dragLeave($event)"
+                 @drop="drop($event, '{{ stage }}')">
                 {% if deals_by_stage.get(stage, []) %}
                     {% for deal in deals_by_stage[stage] %}
-                    <div class="deal-card">
+                    <div class="deal-card"
+                         draggable="true"
+                         data-deal-id="{{ deal.id }}"
+                         @dragstart="dragStart($event, {{ deal.id }})"
+                         @dragend="dragEnd($event)">
                         <div class="deal-card-title">{{ deal.title }}</div>
                         <div class="deal-card-contact">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -54,24 +62,12 @@
                                 {% endif %}
                             </span>
                         </div>
-                        <!-- Stage Move Dropdown -->
-                        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-light);">
-                            <select style="width: 100%; font-size: 0.75rem; padding: 5px 8px; background: var(--bg-secondary);"
-                                @change="moveStage({{ deal.id }}, $event.target.value)"
-                                :disabled="movingDeal === {{ deal.id }}">
-                                {% for s in stages %}
-                                <option value="{{ s }}" {% if s == stage %}selected{% endif %}>
-                                    {% if s == stage %}Current: {% endif %}{{ s }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
                     </div>
                     {% endfor %}
                 {% else %}
-                    <div style="text-align: center; padding: 32px 12px; color: var(--text-subtle); font-size: 0.8125rem;">
+                    <div class="pipeline-empty" style="text-align: center; padding: 32px 12px; color: var(--text-subtle); font-size: 0.8125rem;">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 8px; opacity: 0.4;"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                        <div>No deals in this stage</div>
+                        <div>No deals — drop one here</div>
                     </div>
                 {% endif %}
             </div>
@@ -156,13 +152,74 @@ function dealsPage() {
     return {
         showNewDealModal: false,
         submitting: false,
-        movingDeal: null,
+        draggingDealId: null,
         newDeal: {
             title: '',
             contact_id: '',
             value: '',
             stage: '{{ stages[0] if stages else "Prospect" }}',
             expected_close_date: ''
+        },
+
+        dragStart(e, dealId) {
+            this.draggingDealId = dealId;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', dealId);
+            e.target.classList.add('dragging');
+        },
+
+        dragEnd(e) {
+            e.target.classList.remove('dragging');
+            this.draggingDealId = null;
+            document.querySelectorAll('.pipeline-cards').forEach(el => el.classList.remove('drag-over'));
+        },
+
+        dragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            e.currentTarget.classList.add('drag-over');
+        },
+
+        dragLeave(e) {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+                e.currentTarget.classList.remove('drag-over');
+            }
+        },
+
+        async drop(e, newStage) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            const dealId = parseInt(e.dataTransfer.getData('text/plain'));
+            if (!dealId) return;
+
+            // Find the card's current stage
+            const card = document.querySelector(`[data-deal-id="${dealId}"]`);
+            const currentStage = card?.closest('.pipeline-cards')?.dataset.stage;
+            if (currentStage === newStage) return;
+
+            // Optimistically move the card into the target column
+            const targetColumn = e.currentTarget;
+            const emptyMsg = targetColumn.querySelector('.pipeline-empty');
+            if (emptyMsg) emptyMsg.remove();
+            if (card) targetColumn.appendChild(card);
+
+            try {
+                const resp = await fetch('/api/deals/' + dealId + '/stage', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stage: newStage })
+                });
+                if (resp.ok) {
+                    window.location.reload();
+                } else {
+                    const data = await resp.json();
+                    alert(data.error || 'Failed to move deal');
+                    window.location.reload();
+                }
+            } catch (err) {
+                alert('Network error. Please try again.');
+                window.location.reload();
+            }
         },
 
         async submitDeal() {
@@ -192,27 +249,6 @@ function dealsPage() {
             } catch (err) {
                 alert('Network error. Please try again.');
                 this.submitting = false;
-            }
-        },
-
-        async moveStage(dealId, newStage) {
-            this.movingDeal = dealId;
-            try {
-                const resp = await fetch('/api/deals/' + dealId + '/stage', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ stage: newStage })
-                });
-                if (resp.ok) {
-                    window.location.reload();
-                } else {
-                    const data = await resp.json();
-                    alert(data.error || 'Failed to move deal');
-                    this.movingDeal = null;
-                }
-            } catch (err) {
-                alert('Network error. Please try again.');
-                this.movingDeal = null;
             }
         }
     };

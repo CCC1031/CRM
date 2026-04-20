@@ -1388,6 +1388,27 @@ textarea.error {
   color: var(--text-subtle);
 }
 
+/* Drag and Drop */
+.deal-card[draggable="true"] {
+  cursor: grab;
+}
+
+.deal-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.deal-card.dragging {
+  opacity: 0.4;
+  transform: scale(0.95);
+}
+
+.pipeline-cards.drag-over {
+  background: rgba(199, 163, 90, 0.08);
+  border: 2px dashed var(--gold);
+  border-radius: 8px;
+  min-height: 100px;
+}
+
 .deal-card-tags {
   display: flex;
   gap: var(--space-1);
@@ -1718,12 +1739,6 @@ textarea.error {
   z-index: var(--z-chat);
   display: flex;
   flex-direction: column;
-  transform: translateX(100%);
-  transition: transform var(--transition-base);
-}
-
-.chat-panel.open {
-  transform: translateX(0);
 }
 
 .chat-header {

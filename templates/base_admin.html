@@ -3,7 +3,7 @@
 {% block title %}{{ business_name }} - Admin{% endblock %}
 
 {% block body %}
-<div x-data="{ sidebarOpen: true, chatOpen: false, mobileMenuOpen: false }" class="min-h-screen" style="background-color: var(--bg-primary);">
+<div x-data="{ sidebarOpen: true, chatOpen: false, mobileMenuOpen: false, ...chatAdminData() }" class="min-h-screen" style="background-color: var(--bg-primary);">
 
     <!-- Mobile Header -->
     <div class="sidebar-mobile-header" style="display: none;">
@@ -38,6 +38,30 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                 <span x-show="sidebarOpen">Deals</span>
             </a>
+            {% if config.get('FEATURE_CLIENTS', 'true') == 'true' %}
+            <a href="/admin/clients" class="sidebar-link {% if request.endpoint in ['clients.clients_list', 'clients.client_detail'] %}active{% endif %}">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="16" cy="3" r="1"/></svg>
+                <span x-show="sidebarOpen">Clients</span>
+            </a>
+            {% endif %}
+            {% if config.get('FEATURE_PRODUCTS', 'true') == 'true' %}
+            <a href="/admin/products" class="sidebar-link {% if request.endpoint in ['products.products_list', 'products.product_detail'] %}active{% endif %}">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                <span x-show="sidebarOpen">Products</span>
+            </a>
+            {% endif %}
+            {% if config.get('FEATURE_TASKS', 'true') == 'true' %}
+            <a href="/admin/tasks" class="sidebar-link {% if request.endpoint == 'tasks.tasks_board' %}active{% endif %}">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span x-show="sidebarOpen">Tasks</span>
+            </a>
+            {% endif %}
+            {% if config.get('FEATURE_EMAIL', 'true') == 'true' %}
+            <a href="/admin/email-templates" class="sidebar-link {% if request.endpoint in ['email.templates_list', 'email.email_log'] %}active{% endif %}">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <span x-show="sidebarOpen">Email</span>
+            </a>
+            {% endif %}
         </nav>
 
         <div class="sidebar-footer">
@@ -69,14 +93,22 @@
         <svg x-show="chatOpen" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
 
-    <!-- Chat Panel -->
-    <div class="chat-panel" x-data="chatPanel()" x-show="chatOpen"
+    <!-- Chat Panel — merged into parent scope to fix Alpine.js visibility bug -->
+    <div class="chat-panel"
+         x-show="chatOpen"
          x-transition:enter="transition ease-out duration-300"
          x-transition:enter-start="translate-x-full"
          x-transition:enter-end="translate-x-0"
          x-transition:leave="transition ease-in duration-200"
          x-transition:leave-start="translate-x-0"
-         x-transition:leave-end="translate-x-full">
+         x-transition:leave-end="translate-x-full"
+         x-init="$nextTick(() => {
+             const saved = localStorage.getItem('crm-chat-history');
+             if (saved) { try { chatMessages = JSON.parse(saved); } catch(e) { chatMessages = []; } }
+             if (chatMessages.length === 0) {
+                 chatMessages.push({ role: 'assistant', content: 'Welcome! I\'m your AI assistant. I can help you manage contacts, deals, and more.\n\nTry:\n\u2022 \"Add a contact named John Smith, email john@example.com\"\n\u2022 \"Show me all leads\"\n\u2022 \"Move the Garcia deal to Proposal\"\n\u2022 \"How many deals are in the pipeline?\"', timestamp: new Date().toISOString() });
+             }
+         })">
 
         <!-- Header -->
         <div class="chat-header" style="display: flex; align-items: center; justify-content: space-between;">
@@ -84,7 +116,7 @@
                 <h3 style="color: var(--gold); font-weight: 600; margin: 0;">AI Assistant</h3>
                 <span style="color: var(--text-subtle); font-size: 0.75rem;">Powered by AI</span>
             </div>
-            <button @click="clearHistory()" class="btn btn-ghost btn-sm" title="Clear chat history"
+            <button @click="chatMessages = [{ role: 'assistant', content: 'Chat history cleared. How can I help you?', timestamp: new Date().toISOString() }]; localStorage.setItem('crm-chat-history', JSON.stringify(chatMessages));" class="btn btn-ghost btn-sm" title="Clear chat history"
                     style="color: var(--text-subtle); font-size: 0.75rem; padding: 4px 8px;">
                 Clear
             </button>
@@ -92,13 +124,13 @@
 
         <!-- Messages -->
         <div class="chat-messages" x-ref="chatMessages">
-            <template x-for="(msg, index) in messages" :key="index">
+            <template x-for="(msg, index) in chatMessages" :key="index">
                 <div class="chat-message" :class="msg.role">
                     <div class="chat-bubble"
                          :style="msg.role === 'user'
                             ? 'background: rgba(199,163,90,0.15); margin-left: 24px; text-align: right;'
                             : 'background: var(--card-bg); margin-right: 24px;'">
-                        <div x-html="formatMessage(msg.content)"></div>
+                        <div x-html="chatFormatMessage(msg.content)"></div>
                         <!-- Action badges -->
                         <template x-if="msg.actions && msg.actions.length > 0">
                             <div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px;">
@@ -112,13 +144,13 @@
                             </div>
                         </template>
                         <div style="font-size: 0.65rem; color: var(--text-subtle); margin-top: 4px;"
-                             x-text="formatTime(msg.timestamp)"></div>
+                             x-text="chatFormatTime(msg.timestamp)"></div>
                     </div>
                 </div>
             </template>
 
             <!-- Typing indicator -->
-            <div x-show="loading" class="chat-message assistant">
+            <div x-show="chatLoading" class="chat-message assistant">
                 <div class="chat-bubble" style="background: var(--card-bg); margin-right: 24px;">
                     <div style="display: flex; gap: 4px; padding: 4px 0;">
                         <span class="typing-dot" style="width: 6px; height: 6px; border-radius: 50%; background: var(--gold); animation: typingBounce 1.4s infinite both; animation-delay: 0s;"></span>
@@ -131,16 +163,19 @@
 
         <!-- Input -->
         <div class="chat-input-container">
-            <form class="chat-input" @submit.prevent="send()">
-                <input type="text" x-model="input" placeholder="Ask anything..." autocomplete="off"
-                       @keydown.enter.prevent="send()"
-                       :disabled="loading">
-                <button type="submit" class="btn btn-primary btn-sm" :disabled="loading || !input.trim()">
+            <form class="chat-input" @submit.prevent="chatSend()">
+                <input type="text" x-model="chatInput" placeholder="Ask anything..." autocomplete="off"
+                       @keydown.enter.prevent="chatSend()"
+                       :disabled="chatLoading">
+                <button type="submit" class="btn btn-primary btn-sm" :disabled="chatLoading || !chatInput.trim()">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 </button>
             </form>
         </div>
     </div>
+
+    <!-- Chat script loaded inside body block so child templates can't override it -->
+    <script src="/static/js/chat.js"></script>
 </div>
 {% endblock %}
 
@@ -151,8 +186,4 @@
         40% { transform: scale(1); opacity: 1; }
     }
 </style>
-{% endblock %}
-
-{% block scripts %}
-<script src="/static/js/chat.js"></script>
 {% endblock %}

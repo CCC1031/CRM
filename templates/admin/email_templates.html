@@ -1,0 +1,197 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}Email Templates{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Manage automated email templates.</p>{% endblock %}
+
+{% block page_actions %}
+<a href="/admin/email-log" class="btn btn-outline">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    View Email Log
+</a>
+{% endblock %}
+
+{% block content %}
+<div x-data="emailTemplatesPage()">
+
+    {% if not resend_configured %}
+    <!-- Demo Mode Banner -->
+    <div class="card" style="border: 1px solid rgba(199,163,90,0.3); background: rgba(199,163,90,0.08); margin-bottom: 24px;">
+        <div style="padding: 16px 20px; display: flex; align-items: center; gap: 12px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <span style="color: var(--text-secondary); font-size: 0.875rem;">
+                Running in demo mode &mdash; emails are logged but not sent. Add <code style="background: rgba(199,163,90,0.15); padding: 2px 6px; border-radius: 4px; font-size: 0.85em;">RESEND_API_KEY</code> to enable live sending.
+            </span>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if templates %}
+    <div style="display: grid; gap: 16px;">
+        {% for template in templates %}
+        <div class="card">
+            <div class="card-body" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+                <div style="flex: 1; min-width: 200px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                        <span style="font-weight: 600; color: var(--text-primary); font-size: 1rem;">{{ template.name }}</span>
+                        {% if template.trigger_type == 'lead_magnet' %}
+                            <span class="badge" style="background: rgba(199,163,90,0.15); color: var(--gold);">Lead Magnet</span>
+                        {% elif template.trigger_type == 'purchase_confirmation' %}
+                            <span class="badge" style="background: rgba(16,185,129,0.15); color: var(--success);">Purchase</span>
+                        {% else %}
+                            <span class="badge" style="background: rgba(199,163,90,0.1); color: var(--text-subtle);">{{ template.trigger_type }}</span>
+                        {% endif %}
+                        {% if template.active %}
+                            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success);" title="Active"></span>
+                        {% else %}
+                            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--text-subtle);" title="Inactive"></span>
+                        {% endif %}
+                    </div>
+                    <div style="color: var(--text-muted); font-size: 0.8125rem;">
+                        <strong>Subject:</strong> {{ template.subject }}
+                    </div>
+                </div>
+                <button class="btn btn-outline btn-sm"
+                        @click="editTemplate({{ template.to_dict() | tojson | e }})">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="card">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </div>
+            <h3 class="empty-state-heading">No email templates yet</h3>
+            <p class="empty-state-description">Email templates will appear here once seed data is loaded.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Edit Template Modal -->
+    <div class="modal-overlay" x-show="showEditModal" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @click.self="showEditModal = false"
+         @keydown.escape.window="showEditModal = false">
+        <div class="modal" @click.stop style="max-width: 640px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Edit Template</h3>
+                <button class="modal-close" @click="showEditModal = false">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form @submit.prevent="saveTemplate()">
+                    <div class="form-group">
+                        <label class="form-label">Template Name</label>
+                        <input type="text" :value="editingTemplate.name" readonly
+                               style="opacity: 0.6; cursor: not-allowed;">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Subject</label>
+                        <input type="text" x-model="editingTemplate.subject" placeholder="Email subject line...">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Body (HTML)</label>
+                        <textarea x-model="editingTemplate.body_html" rows="14"
+                                  style="font-family: monospace; font-size: 0.8125rem; line-height: 1.5; resize: vertical; min-height: 280px;"
+                                  placeholder="HTML email body..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-secondary); font-size: 0.875rem;">
+                            <input type="checkbox" x-model="editingTemplate.active"
+                                   style="width: 16px; height: 16px; accent-color: var(--gold);">
+                            Active
+                        </label>
+                    </div>
+
+                    <div style="margin-top: 8px; padding: 8px 0; font-size: 0.75rem; color: var(--text-subtle);">
+                        Available variables: <code style="background: rgba(199,163,90,0.15); padding: 2px 6px; border-radius: 4px;">{{name}}</code>
+                        <code style="background: rgba(199,163,90,0.15); padding: 2px 6px; border-radius: 4px;">{{product_name}}</code>
+                        <code style="background: rgba(199,163,90,0.15); padding: 2px 6px; border-radius: 4px;">{{delivery_url}}</code>
+                        <code style="background: rgba(199,163,90,0.15); padding: 2px 6px; border-radius: 4px;">{{price}}</code>
+                        <code style="background: rgba(199,163,90,0.15); padding: 2px 6px; border-radius: 4px;">{{lead_magnet_url}}</code>
+                    </div>
+
+                    <div class="modal-footer" style="padding: 16px 0 0; margin-top: 8px; border-top: 1px solid var(--border-light);">
+                        <button type="button" class="btn btn-outline" @click="showEditModal = false">Cancel</button>
+                        <button type="submit" class="btn btn-primary" :disabled="saving">
+                            <span x-show="!saving">Save Changes</span>
+                            <span x-show="saving" class="flex items-center gap-2">
+                                <span class="spinner spinner-sm"></span> Saving...
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+function emailTemplatesPage() {
+    return {
+        showEditModal: false,
+        saving: false,
+        editingTemplate: {
+            id: null,
+            name: '',
+            subject: '',
+            body_html: '',
+            active: true
+        },
+
+        editTemplate(template) {
+            this.editingTemplate = {
+                id: template.id,
+                name: template.name,
+                subject: template.subject,
+                body_html: template.body_html,
+                active: template.active
+            };
+            this.showEditModal = true;
+        },
+
+        async saveTemplate() {
+            this.saving = true;
+            try {
+                const resp = await fetch(`/api/email-templates/${this.editingTemplate.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        subject: this.editingTemplate.subject,
+                        body_html: this.editingTemplate.body_html,
+                        active: this.editingTemplate.active
+                    })
+                });
+                if (resp.ok) {
+                    this.showEditModal = false;
+                    window.location.reload();
+                } else {
+                    const data = await resp.json();
+                    alert(data.error || 'Failed to update template');
+                }
+            } catch (err) {
+                alert('Network error. Please try again.');
+            }
+            this.saving = false;
+        }
+    };
+}
+</script>
+{% endblock %}

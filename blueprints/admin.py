@@ -1,8 +1,9 @@
-from flask import Blueprint, render_template, request, redirect, url_for, session, flash
+from flask import Blueprint, render_template, request, redirect, url_for, session, flash, current_app
 from extensions import db
 from auth import login_required, check_credentials
-from models import Contact, Deal, Note, ActivityLog
+from models import Contact, Deal, Note, ActivityLog, PageView, Purchase
 from sqlalchemy import func
+from datetime import datetime, timedelta
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -49,7 +50,23 @@ def dashboard():
     }
     recent_activity = ActivityLog.query.order_by(ActivityLog.created_at.desc()).limit(10).all()
 
-    return render_template("admin/dashboard.html", stats=stats, recent_activity=recent_activity)
+    # Analytics funnel (last 30 days)
+    funnel = None
+    if current_app.config.get("FEATURE_ANALYTICS") == "true":
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        page_views = PageView.query.filter(PageView.created_at >= thirty_days_ago).count()
+        signups = Contact.query.filter(Contact.created_at >= thirty_days_ago).count()
+        purchases = Purchase.query.filter(Purchase.purchased_at >= thirty_days_ago).count()
+
+        funnel = {
+            "page_views": page_views,
+            "signups": signups,
+            "purchases": purchases,
+            "signup_rate": round((signups / page_views * 100), 1) if page_views > 0 else 0,
+            "purchase_rate": round((purchases / signups * 100), 1) if signups > 0 else 0,
+        }
+
+    return render_template("admin/dashboard.html", stats=stats, recent_activity=recent_activity, funnel=funnel)
 
 
 @admin_bp.route("/contacts")

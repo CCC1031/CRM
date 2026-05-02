@@ -1,0 +1,344 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}{{ client.name }}{% endblock %}
+{% block page_subtitle %}
+<div class="page-header breadcrumb" style="margin-bottom: 0;">
+    <a href="/admin/clients" style="color: var(--text-subtle); font-size: 0.875rem;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 4px;"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to Clients
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div x-data="clientDetail()">
+    <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 24px; align-items: start;">
+
+        <!-- LEFT COLUMN: Client Info -->
+        <div>
+            <div class="card" style="margin-bottom: 24px;">
+                <div class="card-header">
+                    <h3 class="card-title flex items-center gap-3">
+                        <div class="avatar avatar-lg">{{ client.name[0].upper() if client.name else '?' }}</div>
+                        {{ client.name }}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <div class="form-label" style="margin-bottom: 4px;">Email</div>
+                            <div style="color: var(--text-primary); font-size: 0.875rem;">
+                                {% if client.email %}
+                                <a href="mailto:{{ client.email }}" style="color: var(--gold);">{{ client.email }}</a>
+                                {% else %}
+                                <span style="color: var(--text-subtle);">--</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div>
+                            <div class="form-label" style="margin-bottom: 4px;">Phone</div>
+                            <div style="color: var(--text-primary); font-size: 0.875rem;">{{ client.phone or '--' }}</div>
+                        </div>
+                        <div>
+                            <div class="form-label" style="margin-bottom: 4px;">Company</div>
+                            <div style="color: var(--text-primary); font-size: 0.875rem;">{{ client.company or '--' }}</div>
+                        </div>
+                        <div>
+                            <div class="form-label" style="margin-bottom: 4px;">Status</div>
+                            <div>
+                                {% if client.status == 'Client' %}
+                                    <span class="badge badge-customer">Client</span>
+                                {% elif client.status == 'Customer' %}
+                                    <span class="badge badge-customer">Customer</span>
+                                {% elif client.status == 'Archived' %}
+                                    <span class="badge badge-inactive">Archived</span>
+                                {% elif client.status == 'VIP' %}
+                                    <span class="badge badge-vip">VIP</span>
+                                {% else %}
+                                    <span class="badge badge-lead">{{ client.status or 'Client' }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div>
+                            <div class="form-label" style="margin-bottom: 4px;">Lead Source</div>
+                            <div style="color: var(--text-primary); font-size: 0.875rem;">{{ client.lead_source or '--' }}</div>
+                        </div>
+                        <div>
+                            <div class="form-label" style="margin-bottom: 4px;">Created</div>
+                            <div style="color: var(--text-muted); font-size: 0.8125rem;">
+                                {{ client.created_at.strftime('%b %d, %Y at %I:%M %p') if client.created_at else '--' }}
+                            </div>
+                        </div>
+                    </div>
+                    {% if client.updated_at %}
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-light); font-size: 0.75rem; color: var(--text-subtle);">
+                        Last updated: {{ client.updated_at.strftime('%b %d, %Y at %I:%M %p') }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    {% if client.status == 'Archived' %}
+                    <button class="btn btn-sm btn-outline" @click="showArchiveModal = true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                        Unarchive Client
+                    </button>
+                    {% else %}
+                    <button class="btn btn-sm btn-outline" @click="showArchiveModal = true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                        Archive Client
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Notes, Purchases, Deals -->
+        <div>
+            <!-- Client Notes Card -->
+            <div class="card" style="margin-bottom: 24px;">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        Client Notes
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- Add Note Form -->
+                    <div style="margin-bottom: 16px;">
+                        <input type="text" x-model="newNote.title" placeholder="Note title..." style="margin-bottom: 8px;">
+                        <textarea x-model="newNote.content" placeholder="Write your note (markdown supported)..." style="min-height: 80px; margin-bottom: 8px;"></textarea>
+                        <button class="btn btn-sm btn-primary" @click="addNote()" :disabled="!newNote.title.trim() || !newNote.content.trim() || addingNote">
+                            <span x-show="!addingNote">Add Note</span>
+                            <span x-show="addingNote" class="flex items-center gap-2"><span class="spinner spinner-sm"></span> Adding...</span>
+                        </button>
+                    </div>
+
+                    <!-- Notes List -->
+                    {% if client.client_notes %}
+                    <div style="border-top: 1px solid var(--border-light); padding-top: 16px;">
+                        {% for note in client.client_notes|sort(attribute='created_at', reverse=true) %}
+                        <div style="padding: 12px 0; border-bottom: 1px solid var(--border-light);">
+                            <div class="flex items-center justify-between" style="margin-bottom: 6px;">
+                                <span style="font-weight: 600; color: var(--text-primary); font-size: 0.875rem;">{{ note.title }}</span>
+                                <button class="btn btn-sm btn-ghost" style="color: var(--danger); padding: 2px 6px;" @click="deleteNote({{ note.id }})" title="Delete note">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                </button>
+                            </div>
+                            <div style="color: var(--text-primary); font-size: 0.875rem; white-space: pre-wrap; margin-bottom: 4px;">{{ note.content }}</div>
+                            <span style="font-size: 0.6875rem; color: var(--text-subtle);">
+                                {{ note.created_at.strftime('%b %d, %Y at %I:%M %p') if note.created_at else '' }}
+                                {% if note.updated_at and note.updated_at != note.created_at %}
+                                 (edited {{ note.updated_at.strftime('%b %d, %Y at %I:%M %p') }})
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p style="color: var(--text-subtle); font-size: 0.8125rem; text-align: center; padding: 12px 0;">No client notes yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Purchase History Card -->
+            <div class="card" style="margin-bottom: 24px;">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 6px;"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                        Purchase History
+                    </h3>
+                </div>
+                <div class="card-body">
+                    {% if purchases %}
+                    {% for purchase in purchases %}
+                    <div style="padding: 12px 0; border-bottom: 1px solid var(--border-light); {% if loop.last %}border-bottom: none;{% endif %}">
+                        <div class="flex items-center justify-between" style="margin-bottom: 4px;">
+                            <span style="font-weight: 600; color: var(--text-primary); font-size: 0.875rem;">{{ purchase.product.name if purchase.product else 'Unknown Product' }}</span>
+                            <span style="font-weight: 700; color: var(--gold); font-size: 0.875rem;">${{ "{:,.2f}".format(purchase.amount) if purchase.amount else '0.00' }}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            {% if purchase.status == 'completed' %}
+                                <span class="badge badge-won">Completed</span>
+                            {% elif purchase.status == 'pending' %}
+                                <span class="badge badge-prospect">Pending</span>
+                            {% elif purchase.status == 'refunded' %}
+                                <span class="badge badge-lost">Refunded</span>
+                            {% else %}
+                                <span class="badge badge-lead">{{ purchase.status }}</span>
+                            {% endif %}
+                            <span style="font-size: 0.6875rem; color: var(--text-subtle);">
+                                {{ purchase.purchased_at.strftime('%b %d, %Y') if purchase.purchased_at else '' }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p style="color: var(--text-subtle); font-size: 0.8125rem; text-align: center; padding: 12px 0;">No purchases recorded.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Deals Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 6px;"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        Deals
+                    </h3>
+                    <a href="/admin/deals" class="btn btn-sm btn-ghost">View Pipeline</a>
+                </div>
+                <div class="card-body">
+                    {% if deals %}
+                    {% for deal in deals %}
+                    <div style="padding: 12px 0; border-bottom: 1px solid var(--border-light); {% if loop.last %}border-bottom: none;{% endif %}">
+                        <div class="flex items-center justify-between" style="margin-bottom: 4px;">
+                            <span style="font-weight: 600; color: var(--text-primary); font-size: 0.875rem;">{{ deal.title }}</span>
+                            <span style="font-weight: 700; color: var(--gold); font-size: 0.875rem;">${{ "{:,.0f}".format(deal.value) if deal.value else '0' }}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            {% if deal.stage == 'Won' %}
+                                <span class="badge badge-won">Won</span>
+                            {% elif deal.stage == 'Lost' %}
+                                <span class="badge badge-lost">Lost</span>
+                            {% elif deal.stage == 'Negotiation' %}
+                                <span class="badge badge-negotiation">{{ deal.stage }}</span>
+                            {% else %}
+                                <span class="badge badge-prospect">{{ deal.stage }}</span>
+                            {% endif %}
+                            {% if deal.expected_close_date %}
+                            <span style="font-size: 0.6875rem; color: var(--text-subtle);">Close: {{ deal.expected_close_date.strftime('%b %d, %Y') }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <p style="color: var(--text-subtle); font-size: 0.8125rem; text-align: center; padding: 12px 0;">No deals associated with this client.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Archive Confirmation Modal -->
+    <div class="modal-overlay" x-show="showArchiveModal" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @click.self="showArchiveModal = false"
+         @keydown.escape.window="showArchiveModal = false">
+        <div class="modal" style="max-width: 420px;" @click.stop>
+            <div class="modal-header">
+                <h3 class="modal-title">{{ 'Unarchive' if client.status == 'Archived' else 'Archive' }} Client</h3>
+                <button class="modal-close" @click="showArchiveModal = false">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-muted); font-size: 0.875rem;">
+                    {% if client.status == 'Archived' %}
+                    Are you sure you want to unarchive <strong style="color: var(--text-primary);">{{ client.name }}</strong>?
+                    Their status will be set back to "Client".
+                    {% else %}
+                    Are you sure you want to archive <strong style="color: var(--text-primary);">{{ client.name }}</strong>?
+                    They will be moved to the archived list and hidden from the active clients view.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" @click="showArchiveModal = false">Cancel</button>
+                <button class="btn btn-primary" @click="archiveClient()" :disabled="archiving">
+                    <span x-show="!archiving">{{ 'Unarchive' if client.status == 'Archived' else 'Archive' }}</span>
+                    <span x-show="archiving" class="flex items-center gap-2"><span class="spinner spinner-sm"></span> Processing...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @media (max-width: 768px) {
+        div[style*="grid-template-columns: 3fr 2fr"] {
+            display: flex !important;
+            flex-direction: column !important;
+        }
+    }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function clientDetail() {
+    return {
+        showArchiveModal: false,
+        archiving: false,
+        addingNote: false,
+        newNote: {
+            title: '',
+            content: ''
+        },
+
+        async addNote() {
+            if (!this.newNote.title.trim() || !this.newNote.content.trim()) return;
+            this.addingNote = true;
+            try {
+                const resp = await fetch('/api/clients/{{ client.id }}/notes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.newNote)
+                });
+                if (resp.ok) {
+                    window.location.reload();
+                } else {
+                    const data = await resp.json();
+                    alert(data.error || 'Failed to add note');
+                    this.addingNote = false;
+                }
+            } catch (err) {
+                alert('Network error. Please try again.');
+                this.addingNote = false;
+            }
+        },
+
+        async deleteNote(noteId) {
+            if (!confirm('Delete this note?')) return;
+            try {
+                const resp = await fetch('/api/clients/{{ client.id }}/notes/' + noteId, {
+                    method: 'DELETE'
+                });
+                if (resp.ok) {
+                    window.location.reload();
+                } else {
+                    const data = await resp.json();
+                    alert(data.error || 'Failed to delete note');
+                }
+            } catch (err) {
+                alert('Network error. Please try again.');
+            }
+        },
+
+        async archiveClient() {
+            this.archiving = true;
+            try {
+                const resp = await fetch('/api/clients/{{ client.id }}/archive', {
+                    method: 'PATCH'
+                });
+                if (resp.ok) {
+                    window.location.reload();
+                } else {
+                    const data = await resp.json();
+                    alert(data.error || 'Failed to update client');
+                    this.archiving = false;
+                }
+            } catch (err) {
+                alert('Network error. Please try again.');
+                this.archiving = false;
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,249 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}Tasks{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Track your to-dos and projects.</p>{% endblock %}
+
+{% block page_actions %}
+<button class="btn btn-primary" @click="$dispatch('open-task-modal')">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    New Task
+</button>
+{% endblock %}
+
+{% block content %}
+<div x-data="tasksPage()" @open-task-modal.window="showNewTaskModal = true">
+
+    <!-- Pipeline Container -->
+    <div class="pipeline-container">
+        {% for status in statuses %}
+        <div class="pipeline-column {% if status == 'done' %}pipeline-won{% endif %}">
+            <div class="pipeline-header" style="
+                {% if status == 'done' %}background: rgba(34, 197, 94, 0.06); border-bottom-color: rgba(34, 197, 94, 0.15);
+                {% elif status == 'in_progress' %}background: rgba(245, 158, 11, 0.06); border-bottom-color: rgba(245, 158, 11, 0.15);
+                {% else %}background: var(--gold-tint);
+                {% endif %}
+            ">
+                <div>
+                    <div class="pipeline-stage-name" style="
+                        {% if status == 'done' %}color: var(--success);
+                        {% elif status == 'in_progress' %}color: rgb(245, 158, 11);
+                        {% else %}color: var(--text-primary);
+                        {% endif %}
+                    ">{{ status_display[status] }}</div>
+                </div>
+                <div class="pipeline-stage-meta">
+                    <span class="pipeline-stage-count">{{ tasks_by_status.get(status, [])|length }}</span>
+                </div>
+            </div>
+
+            <div class="pipeline-cards"
+                 data-status="{{ status }}"
+                 @dragover.prevent="dragOver($event)"
+                 @dragleave="dragLeave($event)"
+                 @drop="drop($event, '{{ status }}')">
+                {% if tasks_by_status.get(status, []) %}
+                    {% for task in tasks_by_status[status] %}
+                    <div class="deal-card" draggable="true" data-task-id="{{ task.id }}"
+                         @dragstart="dragStart($event, {{ task.id }})" @dragend="dragEnd($event)">
+                        <div class="deal-card-title">{{ task.title }}</div>
+                        {% if task.description %}
+                        <div style="color: var(--text-muted); font-size: 0.75rem; margin: 4px 0;">{{ task.description[:80] }}{{ '...' if task.description|length > 80 else '' }}</div>
+                        {% endif %}
+                        <div class="deal-card-footer">
+                            <span class="badge badge-{% if task.priority == 'high' %}lost{% elif task.priority == 'medium' %}negotiation{% else %}prospect{% endif %}">{{ task.priority|capitalize }}</span>
+                            {% if task.due_date %}
+                            <span class="deal-card-date">{{ task.due_date.strftime('%b %d') }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="pipeline-empty" style="text-align: center; padding: 32px 12px; color: var(--text-subtle); font-size: 0.8125rem;">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 8px; opacity: 0.4;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M9 12l2 2 4-4"/></svg>
+                        <div>No tasks — drop one here</div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- New Task Modal -->
+    <div class="modal-overlay" x-show="showNewTaskModal" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @click.self="showNewTaskModal = false"
+         @keydown.escape.window="showNewTaskModal = false">
+        <div class="modal" @click.stop>
+            <div class="modal-header">
+                <h3 class="modal-title">Create New Task</h3>
+                <button class="modal-close" @click="showNewTaskModal = false">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form @submit.prevent="submitTask()">
+                    <div class="form-group">
+                        <label class="form-label">Task Title <span class="required">*</span></label>
+                        <input type="text" x-model="newTask.title" placeholder="e.g. Follow up with client" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea x-model="newTask.description" placeholder="Add details about this task..." rows="3"></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Priority</label>
+                            <select x-model="newTask.priority">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select x-model="newTask.status">
+                                <option value="todo">To Do</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="done">Done</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Due Date</label>
+                        <input type="date" x-model="newTask.due_date">
+                    </div>
+
+                    <div class="modal-footer" style="padding: 16px 0 0; margin-top: 8px; border-top: 1px solid var(--border-light);">
+                        <button type="button" class="btn btn-outline" @click="showNewTaskModal = false">Cancel</button>
+                        <button type="submit" class="btn btn-primary" :disabled="submitting">
+                            <span x-show="!submitting">Create Task</span>
+                            <span x-show="submitting" class="flex items-center gap-2">
+                                <span class="spinner spinner-sm"></span> Creating...
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function tasksPage() {
+    return {
+        showNewTaskModal: false,
+        submitting: false,
+        draggingTaskId: null,
+        newTask: {
+            title: '',
+            description: '',
+            priority: 'medium',
+            status: 'todo',
+            due_date: ''
+        },
+
+        dragStart(e, taskId) {
+            this.draggingTaskId = taskId;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', taskId);
+            e.target.classList.add('dragging');
+        },
+
+        dragEnd(e) {
+            e.target.classList.remove('dragging');
+            this.draggingTaskId = null;
+            document.querySelectorAll('.pipeline-cards').forEach(el => el.classList.remove('drag-over'));
+        },
+
+        dragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            e.currentTarget.classList.add('drag-over');
+        },
+
+        dragLeave(e) {
+            if (!e.currentTarget.contains(e.relatedTarget)) {
+                e.currentTarget.classList.remove('drag-over');
+            }
+        },
+
+        async drop(e, newStatus) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            const taskId = parseInt(e.dataTransfer.getData('text/plain'));
+            if (!taskId) return;
+
+            // Find the card's current status
+            const card = document.querySelector(`[data-task-id="${taskId}"]`);
+            const currentStatus = card?.closest('.pipeline-cards')?.dataset.status;
+            if (currentStatus === newStatus) return;
+
+            // Optimistically move the card into the target column
+            const targetColumn = e.currentTarget;
+            const emptyMsg = targetColumn.querySelector('.pipeline-empty');
+            if (emptyMsg) emptyMsg.remove();
+            if (card) targetColumn.appendChild(card);
+
+            try {
+                const resp = await fetch('/api/tasks/' + taskId + '/status', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                if (resp.ok) {
+                    window.location.reload();
+                } else {
+                    const data = await resp.json();
+                    alert(data.error || 'Failed to move task');
+                    window.location.reload();
+                }
+            } catch (err) {
+                alert('Network error. Please try again.');
+                window.location.reload();
+            }
+        },
+
+        async submitTask() {
+            if (!this.newTask.title.trim()) return;
+            this.submitting = true;
+            try {
+                const payload = {
+                    title: this.newTask.title,
+                    description: this.newTask.description,
+                    priority: this.newTask.priority,
+                    status: this.newTask.status
+                };
+                if (this.newTask.due_date) payload.due_date = this.newTask.due_date;
+
+                const resp = await fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (resp.ok) {
+                    window.location.reload();
+                } else {
+                    const data = await resp.json();
+                    alert(data.error || 'Failed to create task');
+                    this.submitting = false;
+                }
+            } catch (err) {
+                alert('Network error. Please try again.');
+                this.submitting = false;
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

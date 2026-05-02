@@ -1,0 +1,115 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}Clients{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Manage your active clients and their records.</p>{% endblock %}
+
+{% block content %}
+<div x-data="{ }">
+    <!-- Toolbar: Filter -->
+    <div class="flex items-center gap-4" style="margin-bottom: 24px; flex-wrap: wrap;">
+        <div class="flex items-center gap-3" style="flex: 1;">
+            <a href="/admin/clients" class="btn btn-sm {% if not archived %}btn-secondary{% else %}btn-outline{% endif %}">Active</a>
+            <a href="/admin/clients?archived=true" class="btn btn-sm {% if archived %}btn-secondary{% else %}btn-outline{% endif %}">Archived</a>
+        </div>
+    </div>
+
+    {% if clients %}
+    <!-- Desktop Table -->
+    <div class="table-wrapper" style="display: block;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Company</th>
+                    <th>Status</th>
+                    <th>Since</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for client in clients %}
+                <tr style="cursor: pointer;" onclick="window.location='/admin/clients/{{ client.id }}'">
+                    <td>
+                        <div class="flex items-center gap-3">
+                            <div class="avatar avatar-sm">{{ client.name[0].upper() if client.name else '?' }}</div>
+                            <span>{{ client.name }}</span>
+                        </div>
+                    </td>
+                    <td>{{ client.email or '--' }}</td>
+                    <td>{{ client.company or '--' }}</td>
+                    <td>
+                        {% if client.status == 'Client' %}
+                            <span class="badge badge-customer">Client</span>
+                        {% elif client.status == 'Customer' %}
+                            <span class="badge badge-customer">Customer</span>
+                        {% elif client.status == 'Archived' %}
+                            <span class="badge badge-inactive">Archived</span>
+                        {% else %}
+                            <span class="badge badge-lead">{{ client.status or 'Client' }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="color: var(--text-subtle); font-size: 0.8125rem;">
+                        {{ client.created_at.strftime('%b %d, %Y') if client.created_at else '--' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Mobile Cards (hidden on desktop) -->
+    <div class="mobile-contact-cards" style="display: none;">
+        {% for client in clients %}
+        <a href="/admin/clients/{{ client.id }}" class="card" style="display: block; margin-bottom: 12px; text-decoration: none;">
+            <div class="flex items-center gap-3" style="margin-bottom: 12px;">
+                <div class="avatar">{{ client.name[0].upper() if client.name else '?' }}</div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 600; color: var(--text-primary);">{{ client.name }}</div>
+                    <div style="font-size: 0.8125rem; color: var(--text-subtle);">{{ client.email or 'No email' }}</div>
+                </div>
+                {% if client.status == 'Client' %}
+                    <span class="badge badge-customer">Client</span>
+                {% elif client.status == 'Customer' %}
+                    <span class="badge badge-customer">Customer</span>
+                {% elif client.status == 'Archived' %}
+                    <span class="badge badge-inactive">Archived</span>
+                {% else %}
+                    <span class="badge badge-lead">{{ client.status or 'Client' }}</span>
+                {% endif %}
+            </div>
+            <div class="flex justify-between" style="font-size: 0.8125rem; color: var(--text-muted);">
+                <span>{{ client.company or 'No company' }}</span>
+                <span>{{ client.created_at.strftime('%b %d, %Y') if client.created_at else '' }}</span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="card">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <h3 class="empty-state-heading">No clients found</h3>
+            <p class="empty-state-description">
+                {% if archived %}
+                    No archived clients. Clients you archive will appear here.
+                {% else %}
+                    No active clients yet. Contacts with status "Client" or "Customer" will appear here.
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    @media (max-width: 768px) {
+        .table-wrapper { display: none !important; }
+        .mobile-contact-cards { display: block !important; }
+    }
+</style>
+
+{% endblock %}

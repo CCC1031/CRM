@@ -1,0 +1,66 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}Email Log{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">History of all sent and mock emails.</p>{% endblock %}
+
+{% block page_actions %}
+<a href="/admin/email-templates" class="btn btn-outline">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
+    Email Templates
+</a>
+{% endblock %}
+
+{% block content %}
+{% if logs %}
+<div class="table-wrapper">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Recipient</th>
+                <th>Template</th>
+                <th>Subject</th>
+                <th>Status</th>
+                <th>Sent At</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>
+                    <div>
+                        <span style="font-weight: 500; color: var(--text-primary);">{{ log.log_contact.name if log.log_contact else 'Unknown' }}</span>
+                        <div style="font-size: 0.75rem; color: var(--text-subtle);">{{ log.to_email or '--' }}</div>
+                    </div>
+                </td>
+                <td style="color: var(--text-secondary);">{{ log.template.name if log.template else '--' }}</td>
+                <td style="color: var(--text-secondary); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ log.subject or '--' }}</td>
+                <td>
+                    {% if log.status == 'sent' %}
+                        <span class="badge" style="background: rgba(16,185,129,0.15); color: var(--success);">Sent</span>
+                    {% elif log.status == 'failed' %}
+                        <span class="badge" style="background: rgba(239,68,68,0.15); color: var(--danger);">Failed</span>
+                    {% else %}
+                        <span class="badge" style="background: rgba(245,158,11,0.15); color: #f59e0b;">Mock</span>
+                    {% endif %}
+                </td>
+                <td style="color: var(--text-subtle); font-size: 0.8125rem;">
+                    {{ log.sent_at.strftime('%b %d, %Y %I:%M %p') if log.sent_at else '--' }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<!-- Empty State -->
+<div class="card">
+    <div class="empty-state">
+        <div class="empty-state-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </div>
+        <h3 class="empty-state-heading">No emails logged yet</h3>
+        <p class="empty-state-description">Emails will appear here when triggered by lead magnet signups or purchases.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

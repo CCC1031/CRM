@@ -1,0 +1,366 @@
+{% extends "base_admin.html" %}
+
+{% block page_title %}{{ product.name }}{% endblock %}
+{% block page_subtitle %}
+<div class="page-header breadcrumb" style="margin-bottom: 0;">
+    <a href="/admin/products" style="color: var(--text-subtle); font-size: 0.875rem;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 4px;"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to Products
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div x-data="productDetail()">
+    <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 24px; align-items: start;">
+
+        <!-- LEFT COLUMN: Product Info -->
+        <div>
+            {% if not stripe_configured %}
+            <div class="card" style="margin-bottom: 24px; border: 1px solid rgba(199,163,90,0.3);">
+                <div class="card-body" style="display: flex; align-items: center; gap: 12px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    <div>
+                        <span style="color: var(--gold); font-weight: 600; font-size: 0.875rem;">Mock Checkout Mode</span>
+                        <p style="color: var(--text-muted); font-size: 0.8125rem; margin: 0;">Connect Stripe to enable live payments. Set <code style="background: rgba(199,163,90,0.15); padding: 2px 6px; border-radius: 4px; font-size: 0.85em;">STRIPE_SECRET_KEY</code> in your environment.</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card" style="margin-bottom: 24px;">
+                <div class="card-header">
+                    <h3 class="card-title flex items-center gap-3">
+                        <div class="avatar avatar-lg" style="background: rgba(199,163,90,0.15); color: var(--gold);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                        </div>
+                        <span x-show="!editing">{{ product.name }}</span>
+                        <span x-show="editing" x-cloak style="flex: 1;">
+                            <input type="text" x-model="form.name" style="font-size: 1rem; font-weight: 600;">
+                        </span>
+                    </h3>
+                    <div class="flex items-center gap-2">
+                        <button class="btn btn-sm btn-outline" @click="toggleEdit()" x-show="!editing">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Edit
+                        </button>
+                        <button class="btn btn-sm btn-primary" @click="saveProduct()" x-show="editing" x-cloak :disabled="saving">
+                            <span x-show="!saving">Save</span>
+                            <span x-show="saving" class="flex items-center gap-2"><span class="spinner spinner-sm"></span> Saving...</span>
+                        </button>
+                        <button class="btn btn-sm btn-outline" @click="cancelEdit()" x-show="editing" x-cloak>Cancel</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Display Mode -->
+                    <div x-show="!editing">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div>
+                                <div class="form-label" style="margin-bottom: 4px;">Price</div>
+                                <div style="color: var(--gold); font-weight: 700; font-size: 1.25rem;">
+                                    {% if product.product_type == 'free' %}FREE{% else %}${{ "{:,.2f}".format(product.price) }}{% endif %}
+                                </div>
+                            </div>
+                            <div>
+                                <div class="form-label" style="margin-bottom: 4px;">Type</div>
+                                <div>
+                                    <span class="badge badge-lead">{{ product.product_type|capitalize }}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="form-label" style="margin-bottom: 4px;">Status</div>
+                                <div>
+                                    <span class="badge badge-{{ 'customer' if product.active else 'inactive' }}">{{ 'Active' if product.active else 'Inactive' }}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="form-label" style="margin-bottom: 4px;">Delivery URL</div>
+                                <div style="color: var(--text-primary); font-size: 0.875rem;">
+                                    {% if product.delivery_url %}
+                                    <a href="{{ product.delivery_url }}" target="_blank" style="color: var(--gold); word-break: break-all;">{{ product.delivery_url[:50] }}{{ '...' if product.delivery_url|length > 50 else '' }}</a>
+                                    {% else %}
+                                    <span style="color: var(--text-subtle);">--</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div>
+                                <div class="form-label" style="margin-bottom: 4px;">Stripe Price ID</div>
+                                <div style="color: var(--text-primary); font-size: 0.875rem;">
+                                    {% if product.stripe_price_id %}
+                                    <code style="background: rgba(199,163,90,0.15); padding: 2px 6px; border-radius: 4px; font-size: 0.85em;">{{ product.stripe_price_id }}</code>
+                                    {% else %}
+                                    <span style="color: var(--text-subtle);">--</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div>
+                                <div class="form-label" style="margin-bottom: 4px;">Image URL</div>
+                                <div style="color: var(--text-primary); font-size: 0.875rem;">
+                                    {% if product.image_url %}
+                                    <a href="{{ product.image_url }}" target="_blank" style="color: var(--gold); word-break: break-all;">{{ product.image_url[:50] }}{{ '...' if product.image_url|length > 50 else '' }}</a>
+                                    {% else %}
+                                    <span style="color: var(--text-subtle);">--</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if product.description %}
+                        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-light);">
+                            <div class="form-label" style="margin-bottom: 4px;">Description</div>
+                            <p style="color: var(--text-primary); font-size: 0.875rem; white-space: pre-wrap;">{{ product.description }}</p>
+                        </div>
+                        {% endif %}
+
+                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-light);">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div>
+                                    <div class="form-label" style="margin-bottom: 4px;">Created</div>
+                                    <div style="color: var(--text-muted); font-size: 0.8125rem;">
+                                        {{ product.created_at.strftime('%b %d, %Y at %I:%M %p') if product.created_at else '--' }}
+                                    </div>
+                                </div>
+                                {% if product.updated_at %}
+                                <div>
+                                    <div class="form-label" style="margin-bottom: 4px;">Last Updated</div>
+                                    <div style="color: var(--text-muted); font-size: 0.8125rem;">
+                                        {{ product.updated_at.strftime('%b %d, %Y at %I:%M %p') }}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Edit Mode -->
+                    <div x-show="editing" x-cloak>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Price</label>
+                                <input type="number" x-model="form.price" step="0.01" min="0" placeholder="0.00">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Type</label>
+                                <select x-model="form.product_type">
+                                    <option value="paid">Paid</option>
+                                    <option value="free">Free</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Status</label>
+                                <select x-model="form.active">
+                                    <option value="true">Active</option>
+                                    <option value="false">Inactive</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Stripe Price ID</label>
+                                <input type="text" x-model="form.stripe_price_id" placeholder="price_...">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0; grid-column: span 2;">
+                                <label class="form-label">Description</label>
+                                <textarea x-model="form.description" placeholder="Describe your product..." style="min-height: 80px;"></textarea>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0; grid-column: span 2;">
+                                <label class="form-label">Delivery URL</label>
+                                <input type="url" x-model="form.delivery_url" placeholder="https://example.com/download">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0; grid-column: span 2;">
+                                <label class="form-label">Image URL</label>
+                                <input type="url" x-model="form.image_url" placeholder="https://example.com/image.jpg">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer" x-show="!editing">
+                    <button class="btn btn-sm btn-danger" @click="showDeleteModal = true" style="margin-right: auto;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        Delete Product
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Purchase History -->
+        <div>
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" style="display: inline; vertical-align: middle; margin-right: 6px;"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                        Purchase History
+                    </h3>
+                </div>
+                <div class="card-body">
+                    {% if purchases %}
+                    <div style="overflow-x: auto;">
+                        <table class="table" style="font-size: 0.8125rem;">
+                            <thead>
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for purchase in purchases %}
+                                <tr>
+                                    <td>
+                                        {% if purchase.contact %}
+                                        <a href="/admin/contacts/{{ purchase.contact.id }}" style="color: var(--gold);">{{ purchase.contact.name }}</a>
+                                        {% else %}
+                                        <span style="color: var(--text-subtle);">Unknown</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="font-weight: 600; color: var(--gold);">${{ "{:,.2f}".format(purchase.amount) }}</td>
+                                    <td>
+                                        {% if purchase.status == 'completed' %}
+                                            <span class="badge badge-customer">Completed</span>
+                                        {% elif purchase.status == 'pending' %}
+                                            <span class="badge badge-lead">Pending</span>
+                                        {% elif purchase.status == 'refunded' %}
+                                            <span class="badge badge-inactive">Refunded</span>
+                                        {% else %}
+                                            <span class="badge badge-lead">{{ purchase.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="color: var(--text-subtle); font-size: 0.75rem;">
+                                        {{ purchase.purchased_at.strftime('%b %d, %Y') if purchase.purchased_at else '--' }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p style="color: var(--text-subtle); font-size: 0.8125rem; text-align: center; padding: 12px 0;">No purchases yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" x-show="showDeleteModal" x-cloak
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @click.self="showDeleteModal = false"
+         @keydown.escape.window="showDeleteModal = false">
+        <div class="modal" style="max-width: 420px;" @click.stop>
+            <div class="modal-header">
+                <h3 class="modal-title" style="color: var(--danger);">Delete Product</h3>
+                <button class="modal-close" @click="showDeleteModal = false">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-muted); font-size: 0.875rem;">
+                    Are you sure you want to delete <strong style="color: var(--text-primary);">{{ product.name }}</strong>?
+                    This action cannot be undone. Purchase records will remain but will no longer be linked to this product.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" @click="showDeleteModal = false">Cancel</button>
+                <button class="btn btn-danger" @click="deleteProduct()" :disabled="deleting">
+                    <span x-show="!deleting">Delete Forever</span>
+                    <span x-show="deleting" class="flex items-center gap-2"><span class="spinner spinner-sm"></span> Deleting...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @media (max-width: 768px) {
+        div[style*="grid-template-columns: 3fr 2fr"] {
+            display: flex !important;
+            flex-direction: column !important;
+        }
+    }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function productDetail() {
+    return {
+        editing: false,
+        saving: false,
+        deleting: false,
+        showDeleteModal: false,
+        form: {
+            name: '{{ product.name|e }}',
+            description: {{ product.description|tojson if product.description else '""' }},
+            price: {{ product.price if product.price else 0 }},
+            product_type: '{{ product.product_type|default("paid", true)|e }}',
+            delivery_url: '{{ product.delivery_url|default("", true)|e }}',
+            stripe_price_id: '{{ product.stripe_price_id|default("", true)|e }}',
+            image_url: '{{ product.image_url|default("", true)|e }}',
+            active: '{{ "true" if product.active else "false" }}'
+        },
+        originalForm: null,
+
+        toggleEdit() {
+            this.originalForm = { ...this.form };
+            this.editing = true;
+        },
+
+        cancelEdit() {
+            this.form = { ...this.originalForm };
+            this.editing = false;
+        },
+
+        async saveProduct() {
+            if (!this.form.name.trim()) return;
+            this.saving = true;
+            try {
+                const payload = {
+                    ...this.form,
+                    active: this.form.active === 'true' || this.form.active === true,
+                    price: parseFloat(this.form.price) || 0
+                };
+                const resp = await fetch('/api/products/{{ product.id }}', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (resp.ok) {
+                    window.location.reload();
+                } else {
+                    const data = await resp.json();
+                    alert(data.error || 'Failed to update product');
+                    this.saving = false;
+                }
+            } catch (err) {
+                alert('Network error. Please try again.');
+                this.saving = false;
+            }
+        },
+
+        async deleteProduct() {
+            this.deleting = true;
+            try {
+                const resp = await fetch('/api/products/{{ product.id }}', {
+                    method: 'DELETE'
+                });
+                if (resp.ok) {
+                    window.location.href = '/admin/products';
+                } else {
+                    const data = await resp.json();
+                    alert(data.error || 'Failed to delete product');
+                    this.deleting = false;
+                }
+            } catch (err) {
+                alert('Network error. Please try again.');
+                this.deleting = false;
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

@@ -17,13 +17,13 @@
   --bg-input: #111215;
   --bg-overlay: rgba(0, 0, 0, 0.65);
 
-  /* Gold Palette */
-  --gold: #C7A35A;
-  --gold-hover: #B88933;
-  --gold-champagne: #E4D3A2;
-  --gold-bronze: #87652C;
-  --gold-tint: rgba(199, 163, 90, 0.10);
-  --gold-glow: rgba(199, 163, 90, 0.25);
+  /* Snaxology Red Palette */
+  --gold: #E31E24;
+  --gold-hover: #C41A1F;
+  --gold-champagne: #F5A5A9;
+  --gold-bronze: #A01519;
+  --gold-tint: rgba(227, 30, 36, 0.10);
+  --gold-glow: rgba(227, 30, 36, 0.25);
 
   /* Text */
   --text-primary: #F5F0E8;

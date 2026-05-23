@@ -1,6 +1,7 @@
 import os
 import uuid
 from flask import Flask, request
+from flask_cors import CORS
 from dotenv import load_dotenv
 from extensions import db
 
@@ -47,6 +48,9 @@ def create_app():
 
     # Init extensions
     db.init_app(app)
+    
+    # Enable CORS for all routes
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
 
     # Register core blueprints
     from blueprints.public import public_bp

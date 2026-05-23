@@ -13,6 +13,51 @@ def health():
     return jsonify({"status": "ok"})
 
 
+# --- PUBLIC LEADS ENDPOINT (No Auth Required) ---
+
+@api_bp.route("/leads", methods=["POST"])
+def create_lead():
+    """Public endpoint for website form submissions. No authentication required."""
+    data = request.get_json()
+    if not data or not data.get("name"):
+        return jsonify({"error": "Name is required"}), 400
+    
+    if not data.get("email"):
+        return jsonify({"error": "Email is required"}), 400
+
+    # Create contact with lead source as "Website Form"
+    contact = Contact(
+        name=data["name"],
+        email=data.get("email"),
+        phone=data.get("phone"),
+        company=data.get("company", ""),
+        status="Lead",
+        lead_source="Website Form",
+    )
+    db.session.add(contact)
+    db.session.flush()
+    
+    # Create a note with additional form data
+    note_content = f"""Website Form Submission:
+- Property Address: {data.get('address', 'N/A')}
+- Property Type: {data.get('property_type', 'N/A')}
+- Machine Type: {data.get('machine_type', 'N/A')}
+- Additional Info: {data.get('additional_info', 'N/A')}"""
+    
+    note = Note(contact_id=contact.id, content=note_content)
+    db.session.add(note)
+    
+    log_activity("lead_created", f"New lead from website form: {contact.name}", contact_id=contact.id)
+    db.session.commit()
+    
+    return jsonify({
+        "message": "Lead created successfully",
+        "contact_id": contact.id,
+        "name": contact.name,
+        "email": contact.email
+    }), 201
+
+
 # --- CONTACTS ---
 
 @api_bp.route("/contacts", methods=["GET"])
